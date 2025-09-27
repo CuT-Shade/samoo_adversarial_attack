@@ -1,0 +1,5 @@
+MODEL_WEIGHTS_PATH=your_model.pth
+DATA_ROOT_DIR=your_cifar10_path
+OUTPUT_DIR=./attack_results
+TORCH_HOME=your_torch_home_path
+LPIPS_CACHE_DIR=your_lpips_cache_path

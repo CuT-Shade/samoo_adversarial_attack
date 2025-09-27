@@ -1,0 +1,22 @@
+# requirements.txt
+# SA-MOO对抗攻击项目的依赖包列表
+# 使用 pip install -r requirements.txt 安装所有依赖
+
+# 核心科学计算库
+numpy>=1.21.0
+torch>=1.12.0
+torchvision>=0.13.0
+
+# 图像处理库
+scikit-image>=0.19.0
+Pillow>=9.0.0
+matplotlib>=3.5.0
+
+# 深度学习感知损失
+lpips>=0.1.4
+
+# 环境变量管理
+python-dotenv>=0.19.0
+
+# YAML处理
+pyyaml>=6.0
