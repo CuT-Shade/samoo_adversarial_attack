@@ -1,0 +1,18 @@
+# 核心科学计算库
+numpy
+torch
+torchvision
+
+# 图像处理库
+scikit-image
+Pillow
+matplotlib
+
+# 深度学习感知损失
+lpips
+
+# 环境变量管理
+python-dotenv
+
+# YAML处理
+pyyaml

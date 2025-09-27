@@ -1,0 +1,243 @@
+# complete_config.yaml
+# SA-MOO对抗攻击完整配置文件
+# 包含所有可配置参数的完整示例
+# 注释掉的参数表示使用默认值或从环境变量读取
+
+# ==================== 核心配置 ====================
+# 目标图像ID：CIFAR-10测试集中要攻击的图像索引 (0-9999)
+target_image_id: 7780
+
+# ==================== 路径配置 ====================
+# 注意：路径配置优先从.env文件读取，YAML中的路径配置会被环境变量覆盖
+# 如果不需要在YAML中设置路径，可以删除或注释掉这些行
+
+# 模型权重文件路径
+# model_weights_path: "cifar10_resnet18.pth"
+
+# CIFAR-10数据集根目录
+# data_root_dir: "./data"
+
+# 输出结果目录
+# output_dir: "./output"
+
+# PyTorch缓存目录
+# torch_home: "~/.cache/torch"
+
+# LPIPS库缓存目录
+# lpips_cache_dir: "~/.cache/torch/lpips"
+
+# ==================== SA-MOO 超参数 ====================
+# 种群大小：进化算法中每代个体的数量
+population_size: 2
+
+# 最大代数：进化算法运行的最大代数
+num_generations: 1000
+
+# 固定K值：扰动预算，表示允许修改的最大像素/通道数量
+# 注意：不同扰动模式下K的含义不同
+fixed_k: 24
+
+# 交叉概率：进化算法中进行交叉操作的概率
+crossover_prob: 0.1
+
+# 零采样概率：初始化和变异时采样0值的概率
+zero_sample_prob: 0.3
+
+# ==================== 攻击配置 ====================
+# 扰动模式选择
+# 可选值:
+#   "rgb_sim"    -> 选中像素的RGB三通道同时修改（同步扰动）
+#   "channel"    -> 选中单个RGB通道修改（论文原始方式，独立通道扰动）
+#   "v_channel"  -> 仅扰动HSV颜色空间的V（亮度）通道（亮度攻击）
+perturbation_mode: "rgb_sim"
+
+# 是否为目标攻击
+# true: 目标攻击（试图让模型预测为指定类别）
+# false: 非目标攻击（只需让模型预测错误即可）
+is_targeted_attack: false
+
+# 目标类别ID：仅当is_targeted_attack=true时生效
+# CIFAR-10的类别ID (0-9):
+# 0: airplane, 1: automobile, 2: bird, 3: cat, 4: deer,
+# 5: dog, 6: frog, 7: horse, 8: ship, 9: truck
+target_class_id: 5
+
+# ==================== 连续扰动配置 ====================
+# 是否启用连续扰动
+# 启用连续扰动之后攻击会较为困难，需要更多的初始种群数目和迭代次数
+# true: 启用连续扰动，扰动值从[lower_bound, upper_bound]中随机选择n位小数
+# false: 使用离散扰动，仅选择{-1, 0, 1}
+enable_continuous_perturbation: false
+
+# 连续扰动下界：仅当enable_continuous_perturbation=true时生效
+continuous_lower_bound: -1.0
+
+# 连续扰动上界：仅当enable_continuous_perturbation=true时生效
+continuous_upper_bound: 1.0
+
+# 连续扰动小数位数：仅当enable_continuous_perturbation=true时生效
+continuous_decimal_places: 2
+
+# ==================== 真实世界鲁棒性配置 ====================
+# 是否启用真实世界鲁棒性检验
+enable_real_world_robustness: false
+
+# JPEG压缩质量：仅当enable_real_world_robustness=true时生效
+jpeg_quality: 75
+
+# 是否启用Resize + Interpolation：仅当enable_real_world_robustness=true时生效
+# true: 启用尺寸变换预处理
+# false: 仅使用JPEG压缩
+enable_resize_preprocessing: true
+
+# Resize比例：仅当enable_resize_preprocessing=true时生效
+resize_scale: 2.0
+
+# ==================== 可视化配置 ====================
+# 是否启用实时可视化
+# true: 启用，会显示攻击过程的可视化窗口
+# false: 禁用，仅保存最终结果
+enable_visualization: false
+
+# 可视化间隔：每多少代更新一次可视化
+# 仅当enable_visualization=true时生效
+visualize_interval: 500
+
+# ==================== 支配关系配置 ====================
+# 根据实验需求自定义支配关系规则。每条规则包含：
+# - when: 触发条件，可使用 is_adversarial / other_is_adversarial 等字段
+# - prefer: (可选) 直接指定更优解 self/other
+# - metrics: (可选) 指标序列，每条指标包含 name / goal[min|max] / tolerance
+# - tie_breakers: (可选) 当所有规则未决时使用的指标
+#
+# 下面的默认配置等价于论文中的判定逻辑：成功优先，并用L2/L0排序。
+dominance:
+	rules:
+		- when:
+				is_adversarial: true
+				other_is_adversarial: false
+			prefer: self
+		- when:
+				is_adversarial: false
+				other_is_adversarial: true
+			prefer: other
+		- when:
+				is_adversarial: true
+				other_is_adversarial: true
+			metrics:
+				- name: l2_norm
+					goal: min
+				- name: l0_norm
+					goal: min
+		- when:
+				is_adversarial: false
+				other_is_adversarial: false
+			metrics:
+				- name: loss
+					goal: min
+				- name: l2_norm
+					goal: min
+	tie_breakers:
+		- name: l0_norm
+			goal: min
+
+# ==================== 动态参数调节 ====================
+# 支持的 schedule: constant, linear, exponential, piecewise。
+# 可针对目标攻击/非目标攻击分别指定 targeted / non_targeted 子段。
+# 也可以在 pieces 中定义分段进度 (progress ∈ [0,1])。
+dynamic_parameters:
+	mutation_probability:
+		schedule: linear
+		targeted:
+			start: 0.2
+			end: 0.01
+		non_targeted:
+			start: 0.4
+			end: 0.01
+		min: 0.001
+		precision: 3
+	crossover_prob:
+    schedule: piecewise
+    pieces:
+      - progress: 0.3
+        value: 0.2
+      - progress: 0.7
+        value: 0.1
+      - progress: 1.0
+        value: 0.05
+	zero_sample_prob:
+		schedule: constant
+		value: 0.3
+
+# ==================== 语义边缘引导 ====================
+edge_guidance:
+	enabled: false
+	method: "sobel"  # sobel | scharr | prewitt | canny
+	gaussian_sigma: 0.8
+	exponent: 1.5
+	uniform_mix: 0.15
+	min_value: 0.0001
+	canny_sigma: 1.0
+	multi_scale:
+		enabled: false
+		scales: [1.0, 0.5, 0.25]
+		weights: ~
+		gaussian_sigmas: ~
+		combine: "mean"  # "mean" | "max"
+		anti_aliasing: true
+	semantic:
+		enabled: false
+		path: ~  # 支持 .png/.jpg/.npy/.npz
+		weight: 0.5
+		blend_mode: "multiply"  # multiply | add | max | replace
+		normalize: true
+		invert: false
+		blur_sigma: 0.0
+		exponent: 1.0
+		clip_low: ~
+		clip_high: ~
+		fail_on_missing: false
+	professional_preprocessing:
+		enabled: false
+		edge_map_path: ~  # 专业边缘检测输出（png/jpg/npy/npz）
+		edge_normalize: false
+		edge_clip_low: ~
+		edge_clip_high: ~
+		semantic_map_path: ~  # 专业语义分割输出（png/jpg/npy/npz）
+		semantic_normalize: true
+		semantic_clip_low: ~
+		semantic_clip_high: ~
+		fail_on_missing: false
+		semantic_model:
+			enabled: false
+			name: "deeplabv3_resnet50"  # torchvision segmentation 模型名称
+			device: "auto"             # auto | cpu | cuda
+			output: "max_prob"         # max_prob | entropy | target_class | top2_gap
+			target_class: ~
+			smooth_sigma: 0.0
+			entropy_eps: 1e-6
+		edge_model:
+			enabled: false
+			type: "semantic_gradient"   # semantic_gradient | semantic_entropy | torchvision_deeplabv3_resnet50 | canny_rgb
+			device: "auto"
+			normalize: true
+			smooth_sigma: 0.0
+			canny_sigma: 1.0
+			semantic_output: "max_prob"
+			semantic_smooth_sigma: 0.0
+			entropy_eps: 1e-6
+			target_class: ~
+
+# ==================== 实验说明 ====================
+# 这个配置文件包含了SA-MOO算法的所有可配置参数
+# 可以：
+# 1. 复制此文件并修改参数进行不同实验
+# 2. 注释掉不需要的参数（使用默认值）
+# 3. 使用命令行参数临时覆盖YAML配置
+# 4. 使用环境变量设置路径相关参数
+#
+# 使用示例：
+# python run_experiment.py complete_config.yaml
+# python run.py --perturbation-mode v_channel --fixed-k 6
+#
+# 路径配置建议在.env文件中设置，而不是在此YAML文件中
