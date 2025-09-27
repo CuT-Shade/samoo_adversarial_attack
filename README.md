@@ -218,7 +218,7 @@ Set via `.env` file or system environment variables:
 
 ## Usage
 
-### 🚀 Quick Start
+### Quick Start
 ```bash
 # Install dependencies
 pip install -r requirements.txt
@@ -227,7 +227,7 @@ pip install -r requirements.txt
 python run.py
 ```
 
-### 🔧 Run Experiments with Configuration Files
+### Run Experiments with Configuration Files
 
 #### Method 1: Use Preset Configuration Files
 ```bash
@@ -267,13 +267,13 @@ export SA_MOO_FIXED_K=6
 python run.py
 ```
 
-### 📁 Configuration File Management
+### Configuration File Management
 
 The project includes the following configuration files:
 
-- **`complete_config.yaml`** - 📚 **Complete Configuration Reference** (includes all parameters and detailed explanations)
-- **`config.yaml`** - ⚙️ Default configuration file
-- **`experiment_configs/`** - 🧪 Experiment-specific configuration folder
+- **`complete_config.yaml`** - **Complete Configuration Reference** (includes all parameters and detailed explanations)
+- **`config.yaml`** - Default configuration file
+- **`experiment_configs/`** - Experiment-specific configuration folder
 
 #### Using Complete Configuration
 
@@ -357,6 +357,6 @@ If using this code, please cite the original paper:
 Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation
 ```
 
-## License
+## MIT License
 
-This project is for academic research purposes only.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
