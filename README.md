@@ -358,6 +358,6 @@ LPIPS_CACHE_DIR=/path/to/lpips/cache
 Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation
 ```
 
-## 许可证
+## MIT许可证
 
-本项目仅用于学术研究目的。
+本项目遵循MIT许可证。
