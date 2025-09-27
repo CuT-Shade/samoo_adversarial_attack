@@ -1,6 +1,6 @@
 # SA-MOO Adversarial Attack
 
-This is a improved reproduction of the paper "Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation" (SA-MOO) in Python.
+This is an improved reproduction of the paper "Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation" (SA-MOO) in Python.
 
 ## Features
 
@@ -360,3 +360,4 @@ Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation
 ## MIT License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
