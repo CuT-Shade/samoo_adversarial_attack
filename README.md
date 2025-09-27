@@ -232,16 +232,16 @@ python run.py
 #### Method 1: Use Preset Configuration Files
 ```bash
 # RGB simultaneous perturbation experiment
-python run_experiment.py rgb_sim_config.yaml
+python run.py rgb_sim_config.yaml
 
 # V channel (brightness) perturbation experiment
-python run_experiment.py v_channel_config.yaml
+python run.py v_channel_config.yaml
 
 # Targeted attack experiment
-python run_experiment.py targeted_attack_config.yaml
+python run.py targeted_attack_config.yaml
 
 # Quick test
-python run_experiment.py quick_test_config.yaml
+python run.py quick_test_config.yaml
 ```
 
 #### Method 2: Use Command Line Arguments
@@ -279,12 +279,12 @@ The project includes the following configuration files:
 
 ```bash
 # View all available parameters (complete config)
-python run_experiment.py complete_config.yaml
+python run.py complete_config.yaml
 
 # Create new experiment based on complete config template
 cp complete_config.yaml experiment_configs/my_experiment.yaml
 # Edit parameters in my_experiment.yaml
-python run_experiment.py my_experiment.yaml
+python run.py my_experiment.yaml
 ```
 
 You can create multiple configuration files in the `experiment_configs/` directory:
@@ -301,7 +301,7 @@ target_class_id: 7
 
 Then use:
 ```bash
-python run_experiment.py your_custom_config.yaml
+python run.py your_custom_config.yaml
 ```
 
 ### 🔧 Path Configuration
@@ -360,4 +360,5 @@ Black-Box Sparse Adversarial Attack via Multi-Objective Optimisation
 ## MIT License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
 
