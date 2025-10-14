@@ -11,7 +11,35 @@ from typing import List, Tuple, Optional, Dict, Any
 from matplotlib.colors import rgb_to_hsv, hsv_to_rgb
 from PIL import Image
 from io import BytesIO
-from config.config import ENABLE_REAL_WORLD_ROBUSTNESS, JPEG_QUALITY, ENABLE_RESIZE_PREPROCESSING, RESIZE_SCALE, DOMINANCE_CONFIG
+from ..config.config import (
+    ENABLE_REAL_WORLD_ROBUSTNESS,
+    JPEG_QUALITY,
+    ENABLE_RESIZE_PREPROCESSING,
+    RESIZE_SCALE,
+    DOMINANCE_CONFIG,
+    DCT_LOW_FREQ_CONFIG,
+)
+from ..utils.dct_low_frequency import apply_dct_low_frequency_interference
+
+_QUERY_COUNTER: Dict[str, int] = {"total": 0}
+
+
+def reset_query_counter() -> None:
+    """Reset the global query counter before a new attack run."""
+
+    _QUERY_COUNTER["total"] = 0
+
+
+def increment_query_counter(count: int) -> None:
+    if count <= 0:
+        return
+    _QUERY_COUNTER["total"] = _QUERY_COUNTER.get("total", 0) + int(count)
+
+
+def get_query_counter() -> int:
+    """Return the total number of model queries issued in the current run."""
+
+    return int(_QUERY_COUNTER.get("total", 0))
 
 def evaluate_objectives_batch(
     population: List[Tuple[np.ndarray, np.ndarray]],
@@ -21,7 +49,8 @@ def evaluate_objectives_batch(
     model: nn.Module,
     targeted: bool,
     target_label: Optional[int],
-    mode: str
+    mode: str,
+    dct_context: Optional[Dict[str, Any]] = None,
 ) -> List[Tuple[bool, float, float, int]]:
     """
     批量评估种群中每个个体的多目标函数值。
@@ -45,6 +74,16 @@ def evaluate_objectives_batch(
     pop_size = len(population)
     device = next(model.parameters()).device
     batch_tensors = []
+    metric_images: List[np.ndarray] = []
+
+    dct_cfg: Optional[Dict[str, Any]] = None
+    dct_active = False
+    edge_map = None
+
+    if dct_context:
+        dct_cfg = dct_context.get("config")
+        edge_map = dct_context.get("edge_map")
+        dct_active = bool(dct_context.get("active", False) and dct_cfg and dct_cfg.get("enabled", False))
 
     # 构建批量输入张量
     for indices, perturbations in population:
@@ -67,13 +106,25 @@ def evaluate_objectives_batch(
             noise_rgb.flat[indices] = perturbations
             perturbed_rgb = np.clip(original_rgb + noise_rgb, 0.0, 1.0).astype(np.float32)
 
+        if dct_active:
+            perturbed_rgb = apply_dct_low_frequency_interference(
+                original_rgb,
+                perturbed_rgb,
+                dct_cfg,
+                edge_map=edge_map,
+            )
+
+        metrics_rgb = perturbed_rgb
+
         # 应用真实世界鲁棒性预处理（如果启用）
+        model_rgb = metrics_rgb
         if ENABLE_REAL_WORLD_ROBUSTNESS:
-            perturbed_rgb = apply_real_world_preprocessing(perturbed_rgb)
+            model_rgb = apply_real_world_preprocessing(metrics_rgb)
 
         # 转换为PyTorch张量格式 [C, H, W]
-        tensor = torch.from_numpy(perturbed_rgb).permute(2, 0, 1).unsqueeze(0).float().to(device)
+        tensor = torch.from_numpy(model_rgb).permute(2, 0, 1).unsqueeze(0).float().to(device)
         batch_tensors.append(tensor)
+        metric_images.append(metrics_rgb)
 
     # 批量推理
     batch_input = torch.cat(batch_tensors, dim=0)
@@ -84,6 +135,9 @@ def evaluate_objectives_batch(
     objective_values = []
     for i in range(pop_size):
         pred_label = int(np.argmax(probs[i]))
+        metrics_rgb = metric_images[i]
+        delta_rgb = metrics_rgb - original_rgb
+        indices, perturbations = population[i]
         is_adversarial = False
         loss = 0.0
 
@@ -110,13 +164,19 @@ def evaluate_objectives_batch(
             # V通道模式：扰动只在V通道上
             noise_full = np.zeros_like(original_v, dtype=np.float32)
             noise_full.flat[indices] = perturbations
-            l2_norm = float(np.linalg.norm(noise_full))  # L2范数
+            if dct_active:
+                l2_norm = float(np.linalg.norm(delta_rgb))
+            else:
+                l2_norm = float(np.linalg.norm(noise_full))  # L2范数
             l0_norm = int(np.count_nonzero(perturbations))  # 非零扰动数量
         else:
             # RGB模式：扰动在RGB空间
             noise_full = np.zeros_like(original_rgb, dtype=np.float32)
             noise_full.flat[indices] = perturbations
-            l2_norm = float(np.linalg.norm(noise_full))  # L2范数
+            if dct_active:
+                l2_norm = float(np.linalg.norm(delta_rgb))
+            else:
+                l2_norm = float(np.linalg.norm(noise_full))  # L2范数
             if mode == "rgb_sim":
                 # RGB同步模式：L0为被扰动的像素数量
                 pert_reshaped = perturbations.reshape(-1, 3)  # (k, 3)
@@ -127,6 +187,7 @@ def evaluate_objectives_batch(
 
         objective_values.append((is_adversarial, loss, l2_norm, l0_norm))
 
+    increment_query_counter(pop_size)
     return objective_values
 
 def apply_real_world_preprocessing(image: np.ndarray) -> np.ndarray:

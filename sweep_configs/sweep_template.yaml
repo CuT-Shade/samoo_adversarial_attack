@@ -1,0 +1,79 @@
+# sweep_template.yaml
+#
+# 用途：为 `run_parameter_sweep.py` 提供批量评测的配置说明。
+# 复制本模板为新的 YAML 文件，并根据需要修改各字段即可快速定义一次参数搜索。
+#
+# ─────────────────────────┐
+# 基础设置                  │
+# ─────────────────────────┘
+# base_config: 指向某个标准实验配置（YAML）。可从 `config_template.yaml` 派生，或引用 `experiment_configs/` 中现有文件。
+#              覆盖值会在生成的临时配置写回。若留空，脚本会以空字典起步，仅写入 overrides 和参数组合。
+# overrides:   在套用参数组合前统一应用的一组键值。用于固定批次共有的设置（例如输出目录、图片 ID 等）。
+# output_root: sweep 的专属输出根目录，建议与主攻击输出区分（默认：`attack_results`）。脚本会在此目录下生成新的子文件夹。
+# keep_configs: 是否保留为每个组合生成的 YAML 文件。设置为 false 时将在 sweep 完成后删除临时配置文件。
+base_config: "config_template.yaml"
+overrides:
+  output_dir: "attack_results"
+  num_generations: 400
+  population_size: 4
+  target_image_id: 7780
+output_root: "attack_results"
+keep_configs: true
+
+# ─────────────────────────┐
+# 参数网格定义              │
+# ─────────────────────────┘
+# parameters: 使用“点语法”指向配置中的字段，并给出取值列表。脚本会对所有列表执行笛卡尔积组合。
+#  例如： `edge_guidance.enabled: [true, false]` 会生成两个组合，分别开启 / 关闭边缘引导。
+#  若希望一次只遍历一部分组合，可在运行脚本时配合 `--max-runs` 或 `--skip-completed` 等参数（详见脚本文档字符串）。
+parameters:
+  perturbation_mode: ["rgb_sim", "v_channel"]
+  fixed_k: [12, 24, 36]
+  dct_low_frequency.keep_ratio: [0.2, 0.3]
+  edge_guidance.enabled: [false, true]
+
+# ─────────────────────────┐
+# 指标权重与排序            │
+# ─────────────────────────┘
+# ranking: 定义 sweep 结果排序逻辑。`priority` 数组按顺序列出比较指标；每个指标包括：
+#   - key:   结果字段名（见脚本 `METRIC_KEYS`）。
+#   - order: 排序方向，`desc` 表示值越大越优，`asc` 表示值越小越优。
+#   - weight: 用于加权评分的权重，最终脚本会额外计算归一化分数供参考。
+# 如果 `priority` 为空，则只会输出原始表格，不做自动排序。
+ranking:
+  priority:
+    - key: success
+      order: desc
+      weight: 1.0
+    - key: adv_confidence
+      order: asc
+      weight: 0.5
+    - key: l2
+      order: asc
+      weight: 0.4
+    - key: lpips
+      order: asc
+      weight: 0.2
+    - key: mean_delta_e00
+      order: asc
+      weight: 0.1
+
+# ─────────────────────────┐
+# 运行控制（可选）          │
+# ─────────────────────────┘
+# max_parallel:   同时运行的实验数，默认 1。增加会并行启动多个 Python 进程（注意显存 / CPU）。
+# resume:         是否跳过已存在的结果目录。`true` 时，若检测到同名 run 目录，则直接解析其 report。
+# environment:    附加的环境变量键值对，在启动子进程时注入，可覆盖特定配置。
+max_parallel: 1
+resume: true
+environment:
+  SA_MOO_LOG_LEVEL: "INFO"
+
+# ─────────────────────────┐
+# 附加收集项（可选）        │
+# ─────────────────────────┘
+# harvest: 指定在 run 目录中还需拷贝到汇总目录的文件（支持通配符）。
+# 例如将 `freq_low_heatmap.png` 汇总到 sweep 输出，以便统一查看。
+harvest:
+  - "freq_low_heatmap.png"
+  - "freq_high_heatmap.png"

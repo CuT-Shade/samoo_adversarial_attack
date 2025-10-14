@@ -5,7 +5,7 @@
 
 import numpy as np
 from typing import List, Tuple, Optional
-from config.config import (
+from ..config.config import (
     ENABLE_CONTINUOUS_PERTURBATION,
     CONTINUOUS_LOWER_BOUND,
     CONTINUOUS_UPPER_BOUND,
@@ -14,7 +14,7 @@ from config.config import (
     CROSSOVER_PROB as DEFAULT_CROSSOVER_PROB,
 )
 from .objectives import non_dominated_sort
-from utils.edge_guidance import EdgeGuidanceWeights
+from ..utils.edge_guidance import EdgeGuidanceWeights
 
 
 def _sample_full_domain(

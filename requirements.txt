@@ -12,6 +12,13 @@ scikit-image>=0.19.0
 Pillow>=9.0.0
 matplotlib>=3.5.0
 
+# 数据分析与可视化
+pandas>=1.5.0
+plotly>=5.15.0
+streamlit>=1.25.0
+kaleido>=0.2.1
+optuna>=3.5.0
+
 # 深度学习感知损失
 lpips>=0.1.4
 

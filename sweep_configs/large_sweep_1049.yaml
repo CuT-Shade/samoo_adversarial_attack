@@ -1,0 +1,82 @@
+# large_sweep_1049.yaml
+#
+# 说明：本示例演示如何利用 run_parameter_sweep.py 覆盖题述的参数组合。
+# - 继承项目根目录的 config.yaml 作为基础配置；
+# - 通过 parameters 段定义网格；
+# - 使用 value/overrides 语法把附加字段绑定到某些取值（例如目标攻击或连续扰动的边界）；
+# - 其余未列出的选项沿用 base_config 中的默认值。
+# ⚠️ 组合总数巨大（约 259,200），启动前务必评估计算资源与运行时长，可使用 --max-runs 做抽样。
+
+base_config: "../config.yaml"
+overrides:
+  # 全局固定项：真实世界鲁棒性全部关闭。
+  enable_real_world_robustness: false
+output_root: "attack_results"
+keep_configs: true
+
+parameters:
+  target_image_id: [1049]
+  population_size: [2, 10, 25]
+  num_generations: [500, 1000]
+  fixed_k: [48, 24, 12, 6]
+  crossover_prob: [0.1, 0.2, 0.5]
+  zero_sample_prob: [0.1, 0.3, 0.5]
+  perturbation_mode: ["rgb_sim", "channel", "v_channel"]
+  is_targeted_attack:
+    - value: false
+      label: untargeted
+    - value: true
+      label: targeted
+      overrides:
+        target_class_id: 5
+  enable_continuous_perturbation:
+    - value: false
+      label: cont_off
+    - value: true
+      label: cont_full
+      overrides:
+        continuous_lower_bound: -1.0
+        continuous_upper_bound: 1.0
+        continuous_decimal_places: 2
+    - value: true
+      label: cont_half
+      overrides:
+        continuous_lower_bound: -0.5
+        continuous_upper_bound: 0.5
+        continuous_decimal_places: 2
+    - value: true
+      label: cont_low
+      overrides:
+        continuous_lower_bound: -0.2
+        continuous_upper_bound: 0.2
+        continuous_decimal_places: 2
+  edge_guidance.enabled: [false, true]
+  dct_low_frequency.enabled: [false, true]
+
+ranking:
+  priority:
+    - key: success
+      order: desc
+      weight: 1.0
+    - key: confidence_drop
+      order: desc
+      weight: 0.7
+    - key: l2
+      order: asc
+      weight: 0.5
+    - key: lpips
+      order: asc
+      weight: 0.2
+
+max_parallel: 3
+resume: true
+environment: {}
+
+harvest:
+  - "report.txt"
+  - "adversarial_result.png"
+  - "final_perturbed.png"
+  - "final_perturbed_preprocessed.png"
+  - "convergence.png"
+  - "freq_low_heatmap.png"
+  - "freq_high_heatmap.png"

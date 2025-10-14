@@ -250,6 +250,24 @@ edge_guidance:
 			entropy_eps: 1e-6
 			target_class: ~
 
+	# ==================== DCT低频干扰 ====================
+	dct_low_frequency:
+		enabled: false
+		max_generations: 50
+		keep_ratio: 0.25
+		blend: 1.0
+		boost: 1.0
+		min_rows: 1
+		min_cols: 1
+		# keep_rows: 8
+		# keep_cols: 8
+		# decay: 1.5
+		# channel_weights: [1.0, 1.0, 1.0]
+		# epsilon: 0.0
+		edge_blend: 1.0
+		edge_exponent: 1.0
+		preserve_energy: true
+
 # ==================== 实验说明 ====================
 # 这个配置文件包含了SA-MOO算法的所有可配置参数
 # 您可以：

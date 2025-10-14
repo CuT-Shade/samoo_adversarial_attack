@@ -27,7 +27,7 @@ class Config:
     4. 默认值
     """
 
-    def __init__(self, config_file: Optional[str] = None):
+    def __init__(self, config_file: Optional[str] = None, overrides: Optional[Dict[str, Any]] = None):
         """
         初始化配置管理器
 
@@ -36,6 +36,12 @@ class Config:
         """
         self.config_file = config_file or self._find_config_file()
         self.yaml_config = self._load_yaml_config()
+        if overrides:
+            if not isinstance(overrides, dict):
+                raise TypeError("overrides must be a dict")
+            base = self.yaml_config if isinstance(self.yaml_config, dict) else {}
+            self.yaml_config = self._deep_update(base, overrides)
+        self._overrides = copy.deepcopy(overrides) if overrides else {}
         self.args = self._parse_args()
 
         # 初始化所有配置参数
@@ -106,11 +112,17 @@ class Config:
         parser.add_argument("--dominance-config", type=str, help="动态支配关系配置（JSON字符串或文件路径）")
         parser.add_argument("--dynamic-params", type=str, help="动态参数调节配置（JSON字符串或文件路径）")
         parser.add_argument("--edge-guidance", type=str, help="边缘引导配置（JSON字符串或文件路径）")
+        parser.add_argument("--dct-low-frequency", type=str, help="DCT低频干扰配置（JSON字符串或文件路径）")
 
         # 其他
         parser.add_argument("--config", type=str, help="指定配置文件路径")
 
-        return parser.parse_args()
+        args, unknown = parser.parse_known_args()
+        if unknown:
+            self._unknown_cli_args = unknown
+        else:
+            self._unknown_cli_args = []
+        return args
 
     def _get_config_value(self, key: str, default_value: Any, value_type: type = str) -> Any:
         """
@@ -351,6 +363,40 @@ class Config:
 
         return edge_config
 
+    def _load_dct_low_freq_config(self) -> Dict[str, Any]:
+        """加载DCT低频干扰配置。"""
+        default_config: Dict[str, Any] = {
+            "enabled": False,
+            "keep_ratio": 0.25,
+            "min_rows": 1,
+            "min_cols": 1,
+            "max_generations": 0,
+            "blend": 1.0,
+            "boost": 1.0,
+            "epsilon": 0.0,
+            "decay": None,
+            "channel_weights": None,
+            "edge_blend": 1.0,
+            "edge_exponent": 1.0,
+            "preserve_energy": True,
+        }
+
+        dct_config = copy.deepcopy(default_config)
+
+        yaml_override = self.yaml_config.get("dct_low_frequency") if isinstance(self.yaml_config, dict) else None
+        if isinstance(yaml_override, dict):
+            dct_config = self._deep_update(dct_config, yaml_override)
+
+        env_override = os.getenv("SA_MOO_DCT_LOW_FREQ")
+        if env_override:
+            dct_config = self._deep_update(dct_config, self._parse_external_config(env_override, "DCT low-frequency config"))
+
+        arg_override = getattr(self.args, "dct_low_frequency", None)
+        if arg_override:
+            dct_config = self._deep_update(dct_config, self._parse_external_config(arg_override, "DCT low-frequency config"))
+
+        return dct_config
+
     def _init_config(self):
         """初始化所有配置参数"""
         # ==================== 核心配置 ====================
@@ -417,6 +463,7 @@ class Config:
         self.DOMINANCE_CONFIG: Dict[str, Any] = self._load_dominance_config()
         self.DYNAMIC_PARAMETER_CONFIG: Dict[str, Any] = self._load_dynamic_parameters()
         self.EDGE_GUIDANCE_CONFIG: Dict[str, Any] = self._load_edge_guidance_config()
+        self.DCT_LOW_FREQ_CONFIG: Dict[str, Any] = self._load_dct_low_freq_config()
 
     def print_config(self):
         """打印当前配置"""
@@ -438,36 +485,73 @@ class Config:
         print(f"Fixed K: {self.FIXED_K}")
         print(f"Visualization: {self.ENABLE_VISUALIZATION}")
         print(f"Real World Robustness: {self.ENABLE_REAL_WORLD_ROBUSTNESS}")
+        if self.DCT_LOW_FREQ_CONFIG.get("enabled", False):
+            max_gens = self.DCT_LOW_FREQ_CONFIG.get("max_generations")
+            print(
+                "DCT Low-frequency Interference: ENABLED"
+                + (f" (max_generations={max_gens})" if max_gens is not None else "")
+            )
+        else:
+            print("DCT Low-frequency Interference: DISABLED")
         print("=" * 30)
 
-# 创建全局配置实例
-config = Config()
+def load_config(
+    config_file: Optional[str] = None,
+    overrides: Optional[Dict[str, Any]] = None,
+) -> "Config":
+    """创建新的配置实例，可选指定配置文件和覆盖参数。"""
 
-# 为了向后兼容，将配置值导出为模块级变量
-TARGET_IMAGE_ID = config.TARGET_IMAGE_ID
-MODEL_WEIGHTS_PATH = config.MODEL_WEIGHTS_PATH
-DATA_ROOT_DIR = config.DATA_ROOT_DIR
-OUTPUT_DIR = config.OUTPUT_DIR
-TORCH_HOME = config.TORCH_HOME
-LPIPS_CACHE_DIR = config.LPIPS_CACHE_DIR
-POPULATION_SIZE = config.POPULATION_SIZE
-NUM_GENERATIONS = config.NUM_GENERATIONS
-FIXED_K = config.FIXED_K
-CROSSOVER_PROB = config.CROSSOVER_PROB
-ZERO_SAMPLE_PROB = config.ZERO_SAMPLE_PROB
-PERTURBATION_MODE = config.PERTURBATION_MODE
-IS_TARGETED_ATTACK = config.IS_TARGETED_ATTACK
-TARGET_CLASS_ID = config.TARGET_CLASS_ID
-ENABLE_CONTINUOUS_PERTURBATION = config.ENABLE_CONTINUOUS_PERTURBATION
-CONTINUOUS_LOWER_BOUND = config.CONTINUOUS_LOWER_BOUND
-CONTINUOUS_UPPER_BOUND = config.CONTINUOUS_UPPER_BOUND
-CONTINUOUS_DECIMAL_PLACES = config.CONTINUOUS_DECIMAL_PLACES
-ENABLE_VISUALIZATION = config.ENABLE_VISUALIZATION
-VISUALIZE_INTERVAL = config.VISUALIZE_INTERVAL
-ENABLE_REAL_WORLD_ROBUSTNESS = config.ENABLE_REAL_WORLD_ROBUSTNESS
-JPEG_QUALITY = config.JPEG_QUALITY
-ENABLE_RESIZE_PREPROCESSING = config.ENABLE_RESIZE_PREPROCESSING
-RESIZE_SCALE = config.RESIZE_SCALE
-DOMINANCE_CONFIG = config.DOMINANCE_CONFIG
-DYNAMIC_PARAMETER_CONFIG = config.DYNAMIC_PARAMETER_CONFIG
-EDGE_GUIDANCE_CONFIG = config.EDGE_GUIDANCE_CONFIG
+    return Config(config_file=config_file, overrides=overrides)
+
+
+def apply_config(new_config: "Config") -> None:
+    """将配置实例应用到模块级变量，供其他模块快捷访问。"""
+
+    global config
+    global TARGET_IMAGE_ID, MODEL_WEIGHTS_PATH, DATA_ROOT_DIR, OUTPUT_DIR
+    global TORCH_HOME, LPIPS_CACHE_DIR
+    global POPULATION_SIZE, NUM_GENERATIONS, FIXED_K
+    global CROSSOVER_PROB, ZERO_SAMPLE_PROB
+    global PERTURBATION_MODE, IS_TARGETED_ATTACK, TARGET_CLASS_ID
+    global ENABLE_CONTINUOUS_PERTURBATION, CONTINUOUS_LOWER_BOUND
+    global CONTINUOUS_UPPER_BOUND, CONTINUOUS_DECIMAL_PLACES
+    global ENABLE_VISUALIZATION, VISUALIZE_INTERVAL
+    global ENABLE_REAL_WORLD_ROBUSTNESS, JPEG_QUALITY
+    global ENABLE_RESIZE_PREPROCESSING, RESIZE_SCALE
+    global DOMINANCE_CONFIG, DYNAMIC_PARAMETER_CONFIG
+    global EDGE_GUIDANCE_CONFIG, DCT_LOW_FREQ_CONFIG
+
+    config = new_config
+
+    TARGET_IMAGE_ID = config.TARGET_IMAGE_ID
+    MODEL_WEIGHTS_PATH = config.MODEL_WEIGHTS_PATH
+    DATA_ROOT_DIR = config.DATA_ROOT_DIR
+    OUTPUT_DIR = config.OUTPUT_DIR
+    TORCH_HOME = config.TORCH_HOME
+    LPIPS_CACHE_DIR = config.LPIPS_CACHE_DIR
+    POPULATION_SIZE = config.POPULATION_SIZE
+    NUM_GENERATIONS = config.NUM_GENERATIONS
+    FIXED_K = config.FIXED_K
+    CROSSOVER_PROB = config.CROSSOVER_PROB
+    ZERO_SAMPLE_PROB = config.ZERO_SAMPLE_PROB
+    PERTURBATION_MODE = config.PERTURBATION_MODE
+    IS_TARGETED_ATTACK = config.IS_TARGETED_ATTACK
+    TARGET_CLASS_ID = config.TARGET_CLASS_ID
+    ENABLE_CONTINUOUS_PERTURBATION = config.ENABLE_CONTINUOUS_PERTURBATION
+    CONTINUOUS_LOWER_BOUND = config.CONTINUOUS_LOWER_BOUND
+    CONTINUOUS_UPPER_BOUND = config.CONTINUOUS_UPPER_BOUND
+    CONTINUOUS_DECIMAL_PLACES = config.CONTINUOUS_DECIMAL_PLACES
+    ENABLE_VISUALIZATION = config.ENABLE_VISUALIZATION
+    VISUALIZE_INTERVAL = config.VISUALIZE_INTERVAL
+    ENABLE_REAL_WORLD_ROBUSTNESS = config.ENABLE_REAL_WORLD_ROBUSTNESS
+    JPEG_QUALITY = config.JPEG_QUALITY
+    ENABLE_RESIZE_PREPROCESSING = config.ENABLE_RESIZE_PREPROCESSING
+    RESIZE_SCALE = config.RESIZE_SCALE
+    DOMINANCE_CONFIG = config.DOMINANCE_CONFIG
+    DYNAMIC_PARAMETER_CONFIG = config.DYNAMIC_PARAMETER_CONFIG
+    EDGE_GUIDANCE_CONFIG = config.EDGE_GUIDANCE_CONFIG
+    DCT_LOW_FREQ_CONFIG = config.DCT_LOW_FREQ_CONFIG
+
+
+# 初始化默认配置
+apply_config(Config())

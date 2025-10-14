@@ -46,9 +46,11 @@ def load_target_image_and_model(
 
     # 加载CIFAR-10测试集
     # train=False表示加载测试集，download=True会在需要时自动下载
+    print("[Init] Preparing CIFAR-10 test set (download if missing)...", flush=True)
     test_set = torchvision.datasets.CIFAR10(
         root=data_root, train=False, download=True, transform=transform
     )
+    print("[Init] CIFAR-10 test set ready.", flush=True)
 
     # 获取指定索引的图像和标签
     img_tensor, true_label = test_set[image_id]
@@ -85,9 +87,11 @@ def load_target_image_and_model(
     # 加载自定义训练的权重
     # map_location=device确保权重加载到正确的设备
     # weights_only=True提高安全性，只加载权重参数
+    print(f"[Init] Loading model weights from {model_path}...", flush=True)
     model.load_state_dict(
         torch.load(model_path, map_location=device, weights_only=True)
     )
+    print("[Init] Model weights loaded.", flush=True)
 
     # 将模型移动到计算设备并设为评估模式（禁用dropout和batch norm更新）
     model.to(device).eval()
